@@ -12,3 +12,6 @@ recursive-include docs *.rst conf.py Makefile make.bat *.jpg *.png *.gif
 
 # Add the Bleak UWP Bridge DLL to the build.
 include bleak/backends/dotnet/BleakUWPBridge.dll
+
+# Add characteristics xml files
+include bleak/characteristics_xml/*.xml
