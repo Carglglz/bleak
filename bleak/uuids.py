@@ -171,7 +171,7 @@ uuid16_dict = {
     0x2A08: "Date Time",
     0x2A09: "Day of Week",
     0x2A0A: "Day Date Time",
-    # 0x2a0b undefined */
+    0x2A0B: "Exact Time 100",
     0x2A0C: "Exact Time 256",
     0x2A0D: "DST Offset",
     0x2A0E: "Time Zone",
@@ -186,11 +186,13 @@ uuid16_dict = {
     0x2A17: "Time Update State",
     0x2A18: "Glucose Measurement",
     0x2A19: "Battery Level",
-    # 0x2a1a and 0x2a1b undefined */
+    0x2A1A: "Battery Power State",
+    0x2A1B: "Battery Level State",
     0x2A1C: "Temperature Measurement",
     0x2A1D: "Temperature Type",
     0x2A1E: "Intermediate Temperature",
-    # 0x2a1f and 0x2a20 undefined */
+    0x2A1F: "Temperature Celsius",
+    0x2A20: "Temperature Fahrenheit",
     0x2A21: "Measurement Interval",
     0x2A22: "Boot Keyboard Input Report",
     0x2A23: "System ID",
