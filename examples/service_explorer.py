@@ -16,6 +16,7 @@ from bleak import BleakClient
 from bleak.utils import get_char_value, pformat_char_value
 from bleak.uuids import uuidstr_to_str
 
+
 async def run(address, loop, debug=False):
     log = logging.getLogger(__name__)
     if debug:
