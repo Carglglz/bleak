@@ -866,10 +866,10 @@ def map_char_value(data, keys=[], string_fmt=False, one_line=True, sep=', '):
         else:
             map_values = dict(zip(keys, data.values()))
             if one_line:
-                return sep.join([f"{k}: {v}" for k, v in map_values.items()])
+                return sep.join(["{}: {}".format(k, v) for k, v in map_values.items()])
             else:
                 sep += '\n'
-                return sep.join([f"{k}: {v}" for k, v in map_values.items()])
+                return sep.join(["{}: {}".format(k, v) for k, v in map_values.items()])
 
 
 def dict_char_value(data, raw=False):
