@@ -3,6 +3,9 @@ import struct
 import bleak
 import xml.etree.ElementTree as ET
 import traceback
+from typing import Union
+from bleak.uuids import uuidstr_to_str
+from bleak.backends.characteristic import BleakGATTCharacteristic
 
 CHARS_XML_DIR = "{}/characteristics_xml".format(bleak.__path__[0])
 
@@ -385,18 +388,30 @@ class CHAR_XML:
                 print(traceback.format_exc())
 
 
-def get_xml_char(char):
-    if "Magnetic Flux" in char:
+def get_xml_char(characteristic: Union[str, BleakGATTCharacteristic])-> CHAR_XML:
+    """Get characteristic metadata from its xml file
+
+    Args:
+        characteristic (str, BleakGATTCharacteristic): The name of the
+                    characteristic or bleak characteristic class
+
+    Returns:
+            characteristic metatada class (CHAR_XML): The characteristic
+            metadata parsed from its xml file
+        """
+    if isinstance(characteristic, BleakGATTCharacteristic):
+        characteristic = uuidstr_to_str(characteristic.uuid)
+    if "Magnetic Flux" in characteristic:
         char_string = "_".join(
             [
                 ch.lower().replace("magnetic", "Magnetic")
-                for ch in char.replace("-", " ", 10).replace("–", " ").split()
+                for ch in characteristic.replace("-", " ", 10).replace("–", " ").split()
             ]
         )
         char_string = char_string.replace("3d", "3D").replace("2d", "2D")
     else:
         char_string = "_".join(
-            [ch.lower() for ch in char.replace("-", " ", 10).replace("–", " ").split()]
+            [ch.lower() for ch in characteristic.replace("-", " ", 10).replace("–", " ").split()]
         )
     char_string += ".xml"
     char_string = char_string.replace("_characteristic", "")
@@ -533,7 +548,7 @@ def _autoformat_reqs(char, val):
 
 # GET FIELD REQUIREMENTS
 def _get_req(char_field):
-    """Get 'char_field' requirements"""
+    """Get characteristics field requirements"""
     reqs = []
     for key in char_field:
         if "Requirement" in key:
@@ -544,6 +559,7 @@ def _get_req(char_field):
 # GET FORMATTED VALUE
 
 def _get_single_field(char, val, debug=False):
+    """Get characteristic single field data"""
     if debug:
         print("CASE 1: ONE FIELD")
     for field in char.fields:
@@ -599,6 +615,7 @@ def _get_single_field(char, val, debug=False):
 
 
 def _get_multiple_fields(char, val, rtn_flags=False, debug=False):
+    """Get characteristic multiple fields data"""
     if debug:
         print("CASE 2: MULTIPLE FIELDS")
     _FLAGS = None
@@ -856,22 +873,42 @@ def _get_multiple_fields(char, val, rtn_flags=False, debug=False):
                 return [_FIELDS_VALS, _FLAGS]
 
 
-def get_char_value(char, val, rtn_flags=False, debug=False):
-    """Given a characteristic 'char' and its raw value 'val' in bytes,
-    obtain the formatted value as a dict instance"""
+def get_char_value(value: bytes, characteristic: Union[BleakGATTCharacteristic,
+                                                       str, CHAR_XML],
+                   rtn_flags: bool = False,
+                   debug: bool = False) -> dict:
+    """Given a characteristic and its raw value in bytes,
+    obtain the formatted value as a dict instance:
+
+    Args:
+        value (bytes): The result of read_gatt_char().
+        characteristic (BleakGATTCharacteristic, str, CHAR_XML):
+            The characteristic from which get metadata.
+        rnt_flags: return the bitflags too if present
+        debug: print debug information about bytes unpacking
+
+    Returns:
+        Dict instance with the formatted value.
+
+    """
 
     # Get characteristic metadata from xml file
-    if isinstance(char, str):
-        char = get_xml_char(char)
-    if len(char.fields) == 1:
+    if isinstance(characteristic, str) or isinstance(characteristic,
+                                                     BleakGATTCharacteristic):
+        characteristic = get_xml_char(characteristic)
+    # if isinstance(characteristic, BleakGATTCharacteristic):
+    #     characteristic = get_xml_char(uuidstr_to_str(characteristic.uuid))
+
+    if len(characteristic.fields) == 1:
         # CASE 1: ONLY ONE FIELD: SINGLE VALUE OR SINGLE BITFIELD
-        return _get_single_field(char, val, debug=debug)
+        return _get_single_field(characteristic, value, debug=debug)
 
     else:
         # CASE 2: MULTIPLE FIELDS: 1º Field flags, Rest of Fields values
         # check if Flags field exists
         # get flags and fields requirements if any
-        return _get_multiple_fields(char, val, rtn_flags=rtn_flags, debug=debug)
+        return _get_multiple_fields(characteristic, value, rtn_flags=rtn_flags,
+                                    debug=debug)
 
 
 def pformat_char_value(data,

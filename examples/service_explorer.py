@@ -38,8 +38,9 @@ async def run(address, loop, debug=False):
                 if "read" in char.properties:
                     try:
                         value = bytes(await client.read_gatt_char(char.uuid))
-                        value = get_char_value(uuidstr_to_str(char.uuid), value)
+                        value = get_char_value(value, char)
                     except Exception as e:
+                        print(e)
                         value = str(e).encode()
                 else:
                     value = None
@@ -66,7 +67,7 @@ if __name__ == "__main__":
     address = (
         "24:71:89:cc:09:05"
         if platform.system() != "Darwin"
-        else "9998175F-9A91-4CA2-B5EA-482AFC3453B9"
+        else "6DC9757A-EBAD-4B8E-B535-FF65D267A2BB"
     )
     loop = asyncio.get_event_loop()
     loop.run_until_complete(run(address, loop, True))
