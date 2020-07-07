@@ -920,6 +920,7 @@ def pformat_char_value(data,
                        symbols=True,
                        prnt=True,
                        rtn=False):
+    """Print or return the characteristic value in string format"""
     if not custom:
         if not one_line:
             if char:
@@ -996,6 +997,8 @@ def pformat_char_value(data,
 
 
 def map_char_value(data, keys=[], string_fmt=False, one_line=True, sep=", "):
+    """Map characteristic value with the given keys, return dict or string
+    format"""
     if keys:
         if not string_fmt:
             return dict(zip(keys, list(data.values())[0]['Value'].values()))
@@ -1009,6 +1012,7 @@ def map_char_value(data, keys=[], string_fmt=False, one_line=True, sep=", "):
 
 
 def dict_char_value(data, raw=False):
+    """Simplify the characteristic value in dict format"""
     try:
         if raw:
             values = {
@@ -1037,6 +1041,7 @@ def dict_char_value(data, raw=False):
 
 
 def pformat_char_flags(data, sep="\n", prnt=False, rtn=True):
+    """Print or return the characteristic flag in string format"""
     try:
         char_string_values = [
             ["{}: {}".format(k, v) for k, v in data[key].items()] for key in data

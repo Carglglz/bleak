@@ -39,19 +39,23 @@ async def run(address, loop, debug=False):
                     try:
                         value = bytes(await client.read_gatt_char(char.uuid))
                         value = get_char_value(value, char)
+                        pretty_format = pformat_char_value(value,
+                                                           one_line=True,
+                                                           prnt=False, rtn=True)
                     except Exception as e:
                         print(e)
                         value = str(e).encode()
+                        pretty_format = value
                 else:
                     value = None
+                    pretty_format = value
                 log.info(
                     "\t[Characteristic] {0}: (Handle: {1}) ({2}) | Name: {3}, Value: {4} ".format(
                         char.uuid,
                         char.handle,
                         ",".join(char.properties),
                         uuidstr_to_str(char.uuid),
-                        pformat_char_value(value, one_line=True, prnt=False,
-                                           rtn=True),
+                        pretty_format,
                     )
                 )
                 for descriptor in char.descriptors:
