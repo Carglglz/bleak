@@ -430,6 +430,15 @@ def _unpack_data(ctype, data):
 
 # BITMASKS
 
+def _complete_bytes(self, bb):
+    """Make bytes number even"""
+    len_bytes = len(bb)
+    if (len_bytes % 2) == 0:
+        pass
+    else:
+        bb = b'\x00' + bb
+    return bb
+
 
 def _autobitmask(val, total_size, index, size, keymap):
     """Generate a bitmask and apply it to 'val' bits given the 'total_size',
@@ -691,6 +700,7 @@ def _get_multiple_fields(char, val, rtn_flags=False, debug=False):
             # Rest are field values
             if debug:
                 print("Global Unpack Format: {}".format(ctype_global))
+            val = _complete_bytes(val)
             flag, *data = struct.unpack(ctype_global, val)
             _RAW_VALS = dict(zip(_FIELDS_TO_READ, data))
             _FIELDS_VALS = {}
