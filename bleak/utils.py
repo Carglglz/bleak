@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 import struct
-import bleak
 import xml.etree.ElementTree as ET
 import traceback
 from typing import Union
 from bleak.uuids import uuidstr_to_str
 from bleak.backends.characteristic import BleakGATTCharacteristic
-
-CHARS_XML_DIR = "{}/characteristics_xml".format(bleak.__path__[0])
+try:
+    import bleak_sigspec
+    CHARS_XML_DIR = "{}/characteristics_xml".format(bleak_sigspec.__path__[0])
+except Exception as e:
+    CHARS_XML_DIR = None
 
 # UNITS
 
