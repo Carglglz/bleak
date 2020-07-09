@@ -617,7 +617,7 @@ def _get_single_field(char, val, debug=False):
                 if "Multiplier" in char.fields[field]:
                     formatted_value *= char.fields[field]["Multiplier"]
                 if "DecimalExponent" in char.fields[field]:
-                    formatted_value *= 10 ** (char.fields[field]["DecimalExponent"])
+                    formatted_value /= 1 / (10 ** (char.fields[field]["DecimalExponent"]))
                 if "BinaryExponent" in char.fields[field]:
                     formatted_value *= 2 ** (char.fields[field]["BinaryExponent"])
 
@@ -721,7 +721,7 @@ def _get_multiple_fields(char, val, rtn_flags=False, debug=False):
                     if "Multiplier" in char.fields[field]:
                         formatted_value *= char.fields[field]["Multiplier"]
                     if "DecimalExponent" in char.fields[field]:
-                        formatted_value *= 10 ** (char.fields[field]["DecimalExponent"])
+                        formatted_value /= 1 / (10 ** (char.fields[field]["DecimalExponent"]))
                     if "BinaryExponent" in char.fields[field]:
                         formatted_value *= 2 ** (char.fields[field]["BinaryExponent"])
                     if "BitField" in char.fields[field]:
@@ -749,9 +749,9 @@ def _get_multiple_fields(char, val, rtn_flags=False, debug=False):
                         if "Multiplier" in _REFERENCE_FIELDS[field]:
                             formatted_value *= _REFERENCE_FIELDS[field]["Multiplier"]
                         if "DecimalExponent" in _REFERENCE_FIELDS[field]:
-                            formatted_value *= 10 ** (
+                            formatted_value /= 1 / (10 ** (
                                 _REFERENCE_FIELDS[field]["DecimalExponent"]
-                            )
+                            ))
                         if "BinaryExponent" in _REFERENCE_FIELDS[field]:
                             formatted_value *= 2 ** (
                                 _REFERENCE_FIELDS[field]["BinaryExponent"]
@@ -845,7 +845,7 @@ def _get_multiple_fields(char, val, rtn_flags=False, debug=False):
                     if "Multiplier" in char.fields[field]:
                         formatted_value *= char.fields[field]["Multiplier"]
                     if "DecimalExponent" in char.fields[field]:
-                        formatted_value *= 10 ** (char.fields[field]["DecimalExponent"])
+                        formatted_value /= 1 / (10 ** (char.fields[field]["DecimalExponent"]))
                     if "BinaryExponent" in char.fields[field]:
                         formatted_value *= 2 ** (char.fields[field]["BinaryExponent"])
 
@@ -869,9 +869,9 @@ def _get_multiple_fields(char, val, rtn_flags=False, debug=False):
                         if "Multiplier" in _REFERENCE_FIELDS[field]:
                             formatted_value *= _REFERENCE_FIELDS[field]["Multiplier"]
                         if "DecimalExponent" in _REFERENCE_FIELDS[field]:
-                            formatted_value *= 10 ** (
+                            formatted_value /= 1 / (10 ** (
                                 _REFERENCE_FIELDS[field]["DecimalExponent"]
-                            )
+                            ))
                         if "BinaryExponent" in _REFERENCE_FIELDS[field]:
                             formatted_value *= 2 ** (
                                 _REFERENCE_FIELDS[field]["BinaryExponent"]
