@@ -10,6 +10,7 @@ try:
     CHARS_XML_DIR = "{}/characteristics_xml".format(bleak_sigspec.__path__[0])
 except Exception as e:
     CHARS_XML_DIR = None
+
 # UNITS
 
 CHARS_UNITS = {
