@@ -13,6 +13,8 @@ import asyncio
 import logging
 
 from bleak import BleakClient
+from bleak.utils import get_char_value, pformat_char_value
+from bleak.uuids import uuidstr_to_str
 
 
 async def run(address, loop, debug=False):
@@ -36,17 +38,24 @@ async def run(address, loop, debug=False):
                 if "read" in char.properties:
                     try:
                         value = bytes(await client.read_gatt_char(char.uuid))
+                        value = get_char_value(value, char)
+                        pretty_format = pformat_char_value(value,
+                                                           one_line=True,
+                                                           prnt=False, rtn=True)
                     except Exception as e:
+                        print(e)
                         value = str(e).encode()
+                        pretty_format = value
                 else:
                     value = None
+                    pretty_format = value
                 log.info(
                     "\t[Characteristic] {0}: (Handle: {1}) ({2}) | Name: {3}, Value: {4} ".format(
                         char.uuid,
                         char.handle,
                         ",".join(char.properties),
                         char.description,
-                        value,
+                        pretty_format,
                     )
                 )
                 for descriptor in char.descriptors:
@@ -62,7 +71,7 @@ if __name__ == "__main__":
     address = (
         "24:71:89:cc:09:05"
         if platform.system() != "Darwin"
-        else "B9EA5233-37EF-4DD6-87A8-2A875E821C46"
+        else "8214E9EA-FE22-450C-B257-F105057EBF31"
     )
     loop = asyncio.get_event_loop()
     loop.run_until_complete(run(address, loop, True))
