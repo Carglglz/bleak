@@ -54,7 +54,7 @@ async def run(address, loop, debug=False):
                         char.uuid,
                         char.handle,
                         ",".join(char.properties),
-                        uuidstr_to_str(char.uuid),
+                        char.description,
                         pretty_format,
                     )
                 )
@@ -71,7 +71,7 @@ if __name__ == "__main__":
     address = (
         "24:71:89:cc:09:05"
         if platform.system() != "Darwin"
-        else "6DC9757A-EBAD-4B8E-B535-FF65D267A2BB"
+        else "8214E9EA-FE22-450C-B257-F105057EBF31"
     )
     loop = asyncio.get_event_loop()
     loop.run_until_complete(run(address, loop, True))
