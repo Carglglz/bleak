@@ -135,9 +135,11 @@ class PeripheralDelegate(NSObject):
 
         event = self._characteristic_read_events.get_cleared(cUUID)
         self.peripheral.readValueForCharacteristic_(characteristic)
-        await event.wait()
-
-        return characteristic.value()
+        await asyncio.wait_for(event.wait(), timeout=5)
+        if characteristic.value():
+            return characteristic.value()
+        else:
+            return b''
 
     async def readDescriptor_(
         self, descriptor: CBDescriptor, use_cached=True
