@@ -36,7 +36,7 @@ CBPeripheralDelegate = objc.protocolNamed("CBPeripheralDelegate")
 class _EventDict(dict):
     def get_cleared(self, xUUID) -> asyncio.Event:
         """ Convenience method.
-        Returns a cleared (False) event. Creates it if doesen't exits.
+        Returns a cleared (False) event. Creates it if doesn't exit.
         """
         if xUUID not in self:
             # init as cleared (False)
@@ -135,9 +135,11 @@ class PeripheralDelegate(NSObject):
 
         event = self._characteristic_read_events.get_cleared(cUUID)
         self.peripheral.readValueForCharacteristic_(characteristic)
-        await event.wait()
-
-        return characteristic.value()
+        await asyncio.wait_for(event.wait(), timeout=5)
+        if characteristic.value():
+            return characteristic.value()
+        else:
+            return b''
 
     async def readDescriptor_(
         self, descriptor: CBDescriptor, use_cached=True
@@ -297,18 +299,18 @@ class PeripheralDelegate(NSObject):
             raise BleakError(
                 "Failed to read characteristic {}: {}".format(cUUID, error)
             )
-
-        notify_callback = self._characteristic_notify_callbacks.get(cUUID)
-        if notify_callback:
-            notify_callback(cUUID, value)
-
-        logger.debug("Read characteristic value")
-        event = self._characteristic_read_events.get(cUUID)
-        if event:
-            event.set()
         else:
-            # only expected on read
-            pass
+            notify_callback = self._characteristic_notify_callbacks.get(cUUID)
+            if notify_callback:
+                notify_callback(cUUID, value)
+
+            logger.debug("Read characteristic value")
+            event = self._characteristic_read_events.get(cUUID)
+            if event:
+                event.set()
+            else:
+                # only expected on read
+                pass
 
     def peripheral_didUpdateValueForCharacteristic_error_(
         self, peripheral: CBPeripheral, characteristic: CBCharacteristic, error: NSError
