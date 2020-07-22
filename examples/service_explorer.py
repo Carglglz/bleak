@@ -61,8 +61,8 @@ async def run(address, loop, debug=False):
                 for descriptor in char.descriptors:
                     value = await client.read_gatt_descriptor(descriptor.handle)
                     log.info(
-                        "\t\t[Descriptor] {0}: (Handle: {1}) | Value: {2} ".format(
-                            descriptor.uuid, descriptor.handle, bytes(value)
+                        "\t\t[Descriptor] {0}: (Handle: {1}) | Name: {2}, Value: {3} ".format(
+                            descriptor.uuid, descriptor.handle, descriptor.description, bytes(value)
                         )
                     )
 
@@ -71,7 +71,7 @@ if __name__ == "__main__":
     address = (
         "24:71:89:cc:09:05"
         if platform.system() != "Darwin"
-        else "8214E9EA-FE22-450C-B257-F105057EBF31"
+        else "81C309C0-2DF5-42BA-81BF-8B8112E026A7"
     )
     loop = asyncio.get_event_loop()
     loop.run_until_complete(run(address, loop, True))
