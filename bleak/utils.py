@@ -103,6 +103,8 @@ CHARS_UNITS = {
     "stroke per minute": "str/min",
     "hour": "h",
     "newton metre": "Nm",
+    "millimetre of mercury": "mmHg",
+    "metabolic equivalent": "MET"
 }
 
 
