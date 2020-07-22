@@ -9,7 +9,7 @@ try:
     import bleak_sigspec
     CHARS_XML_DIR = "{}/characteristics_xml".format(bleak_sigspec.__path__[0])
 except Exception as e:
-    CHARS_XML_DIR = None
+    CHARS_XML_DIR = '.'
 
 # UNITS
 
@@ -143,8 +143,8 @@ DATA_FMT = {
 class CHAR_XML:
     """Parse characteristic xml file"""
 
-    def __init__(self, xml_file):
-        self._tree = ET.parse("{}/{}".format(CHARS_XML_DIR, xml_file))
+    def __init__(self, xml_file, path=CHARS_XML_DIR):
+        self._tree = ET.parse("{}/{}".format(path, xml_file))
         self._root = self._tree.getroot()
         self.char_metadata = None
         self.name = None
