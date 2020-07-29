@@ -104,7 +104,13 @@ CHARS_UNITS = {
     "hour": "h",
     "newton metre": "Nm",
     "millimetre of mercury": "mmHg",
-    "metabolic equivalent": "MET"
+    "metabolic equivalent": "MET",
+    "liter per second": "L/s",
+    "kilowatt hour": "kWh",
+    "lumen per watt": "lm/W",
+    "lumen per hour": "lm/h",
+    "lux hour": "lx/h",
+    "gram per second": "g/s"
 }
 
 
