@@ -186,13 +186,13 @@ class PeripheralDelegate(NSObject):
     async def startNotify_cb_(
         self, characteristic: CBCharacteristic, callback: Callable[[str, Any], Any]
     ) -> bool:
-        cUUID = characteristic.UUID().UUIDString()
-        if cUUID in self._characteristic_notify_callbacks:
+        c_handle = characteristic.handle()
+        if c_handle in self._characteristic_notify_callbacks:
             raise ValueError("Characteristic notifications already started")
 
-        self._characteristic_notify_callbacks[cUUID] = callback
+        self._characteristic_notify_callbacks[c_handle] = callback
 
-        event = self._characteristic_notify_change_events.get_cleared(cUUID)
+        event = self._characteristic_notify_change_events.get_cleared(c_handle)
         self.peripheral.setNotifyValue_forCharacteristic_(True, characteristic)
         # wait for peripheral_didUpdateNotificationStateForCharacteristic_error_ to set event
         # await event.wait()
@@ -200,16 +200,16 @@ class PeripheralDelegate(NSObject):
         return True
 
     async def stopNotify_(self, characteristic: CBCharacteristic) -> bool:
-        cUUID = characteristic.UUID().UUIDString()
-        if cUUID not in self._characteristic_notify_callbacks:
+        c_handle = characteristic.handle()
+        if c_handle not in self._characteristic_notify_callbacks:
             raise ValueError("Characteristic notification never started")
 
-        event = self._characteristic_notify_change_events.get_cleared(cUUID)
+        event = self._characteristic_notify_change_events.get_cleared(c_handle)
         self.peripheral.setNotifyValue_forCharacteristic_(False, characteristic)
         # wait for peripheral_didUpdateNotificationStateForCharacteristic_error_ to set event
         # await event.wait()
 
-        self._characteristic_notify_callbacks.pop(cUUID)
+        self._characteristic_notify_callbacks.pop(c_handle)
 
         return True
 
@@ -295,14 +295,15 @@ class PeripheralDelegate(NSObject):
         error: NSError,
     ):
         cUUID = characteristic.UUID().UUIDString()
+        c_handle = characteristic.handle()
         if error is not None:
             raise BleakError(
                 "Failed to read characteristic {}: {}".format(cUUID, error)
             )
         else:
-            notify_callback = self._characteristic_notify_callbacks.get(cUUID)
+            notify_callback = self._characteristic_notify_callbacks.get(c_handle)
             if notify_callback:
-                notify_callback(cUUID, value)
+                notify_callback(c_handle, value, cUUID)
 
             logger.debug("Read characteristic value")
             event = self._characteristic_read_events.get(cUUID)
@@ -401,6 +402,7 @@ class PeripheralDelegate(NSObject):
         self, peripheral: CBPeripheral, characteristic: CBCharacteristic, error: NSError
     ):
         cUUID = characteristic.UUID().UUIDString()
+        c_handle = characteristic.handle()
         if error is not None:
             raise BleakError(
                 "Failed to update the notification status for characteristic {}: {}".format(
@@ -409,7 +411,7 @@ class PeripheralDelegate(NSObject):
             )
         logger.debug("Character Notify Update")
 
-        event = self._characteristic_notify_change_events.get(cUUID)
+        event = self._characteristic_notify_change_events.get(c_handle)
         if event:
             event.set()
         else:
