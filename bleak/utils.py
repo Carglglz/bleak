@@ -440,7 +440,7 @@ def _unpack_data(ctype, data):
 
 # BITMASKS
 
-def _complete_bytes(self, bb):
+def _complete_bytes(bb):
     """Make bytes number even"""
     len_bytes = len(bb)
     if (len_bytes % 2) == 0:
@@ -677,7 +677,9 @@ def _get_multiple_fields(char, val, rtn_flags=False, debug=False):
             # get global unpack format: ctype_flag += ctype_field_to_read
             ctype_global = ctype_flag
             # REFERENCE FIELDS
-            _REFERENCE_FIELDS = {}
+            _REFERENCE_FIELDS = {}  # fields with attributes
+            _REFERENCE_TAGS_FIELDS = {}  # fields that references another characteristic
+            _FIELDS_OF_REFERENCED_CHAR = {}  # fields of the referenced characteristic
             copy_FIELDS_TO_READ = _FIELDS_TO_READ.copy()
             for field in copy_FIELDS_TO_READ:
                 if "Ctype" in char.fields[field]:
@@ -688,90 +690,98 @@ def _get_multiple_fields(char, val, rtn_flags=False, debug=False):
 
                 if "Reference" in char.fields[field]:
                     reference = char.fields[field]["Reference"]
+                    _REFERENCE_TAGS_FIELDS[field] = reference
                     reference_char = get_xml_char(reference)
-                    _LIST_REFERENCES = []
+                    _FIELDS_OF_REFERENCED_CHAR[reference] = []
                     for ref_field in reference_char.fields:
                         # Add fields to _REFERENCE_FIELDS
-                        _LIST_REFERENCES.append(ref_field)
+                        _FIELDS_OF_REFERENCED_CHAR[reference].append(ref_field)
                         _REFERENCE_FIELDS[ref_field] = reference_char.fields[ref_field]
                         if "Ctype" in reference_char.fields[ref_field]:
                             ctype = reference_char.fields[ref_field]["Ctype"]
                             ctype_global += ctype
-
-                    # Substitute
-                    _LIST_REFERENCES.reverse()
-                    char_index = _FIELDS_TO_READ.index(field)
-                    _FIELDS_TO_READ.pop(char_index)
-                    for rf in _LIST_REFERENCES:
-                        _FIELDS_TO_READ.insert(char_index, rf)
-
             # Unpack data
             # First value is the flags value
             # Rest are field values
             if debug:
                 print("Global Unpack Format: {}".format(ctype_global))
+
             val = _complete_bytes(val)
             flag, *data = struct.unpack(ctype_global, val)
-            _RAW_VALS = dict(zip(_FIELDS_TO_READ, data))
+            if debug:
+                print(data)
+                print(_FIELDS_TO_READ)
+                print(_REFERENCE_TAGS_FIELDS)
+                print(_FIELDS_OF_REFERENCED_CHAR)
+                print(_REFERENCE_FIELDS)
+            value_index = 0
             _FIELDS_VALS = {}
             # Format fields values according to field metadata: (DecimalExponent/Multiplier):
             for field in _FIELDS_TO_READ:
-                _FIELDS_VALS[field] = {}
+                value = data[value_index]
                 if field in char.fields:
-                    if "Quantity" in char.fields[field]:
-                        _FIELDS_VALS[field]["Quantity"] = char.fields[field]["Quantity"]
-                    if "Unit" in char.fields[field]:
-                        _FIELDS_VALS[field]["Unit"] = char.fields[field]["Unit"]
-                    if "Symbol" in char.fields[field]:
-                        _FIELDS_VALS[field]["Symbol"] = char.fields[field]["Symbol"]
+                    _FIELDS_VALS[field] = {}
+                    if field not in _REFERENCE_TAGS_FIELDS:
+                        if "Quantity" in char.fields[field]:
+                            _FIELDS_VALS[field]["Quantity"] = char.fields[field]["Quantity"]
+                        if "Unit" in char.fields[field]:
+                            _FIELDS_VALS[field]["Unit"] = char.fields[field]["Unit"]
+                        if "Symbol" in char.fields[field]:
+                            _FIELDS_VALS[field]["Symbol"] = char.fields[field]["Symbol"]
 
-                    formatted_value = _RAW_VALS[field]
-                    if "Multiplier" in char.fields[field]:
-                        formatted_value *= char.fields[field]["Multiplier"]
-                    if "DecimalExponent" in char.fields[field]:
-                        formatted_value /= 1 / (10 ** (char.fields[field]["DecimalExponent"]))
-                    if "BinaryExponent" in char.fields[field]:
-                        formatted_value *= 2 ** (char.fields[field]["BinaryExponent"])
-                    if "BitField" in char.fields[field]:
-                        formatted_value = list(
-                            _autoformat(char, formatted_value, field).values()
-                        )[0]
-
-                    _FIELDS_VALS[field]["Value"] = formatted_value
-                else:
-                    if _REFERENCE_FIELDS:
-                        if "Quantity" in _REFERENCE_FIELDS[field]:
-                            _FIELDS_VALS[field]["Quantity"] = _REFERENCE_FIELDS[field][
-                                "Quantity"
-                            ]
-                        if "Unit" in _REFERENCE_FIELDS[field]:
-                            _FIELDS_VALS[field]["Unit"] = _REFERENCE_FIELDS[field][
-                                "Unit"
-                            ]
-                        if "Symbol" in _REFERENCE_FIELDS[field]:
-                            _FIELDS_VALS[field]["Symbol"] = _REFERENCE_FIELDS[field][
-                                "Symbol"
-                            ]
-
-                        formatted_value = _RAW_VALS[field]
-                        if "Multiplier" in _REFERENCE_FIELDS[field]:
-                            formatted_value *= _REFERENCE_FIELDS[field]["Multiplier"]
-                        if "DecimalExponent" in _REFERENCE_FIELDS[field]:
-                            formatted_value /= 1 / (10 ** (
-                                _REFERENCE_FIELDS[field]["DecimalExponent"]
-                            ))
-                        if "BinaryExponent" in _REFERENCE_FIELDS[field]:
-                            formatted_value *= 2 ** (
-                                _REFERENCE_FIELDS[field]["BinaryExponent"]
-                            )
-                        if "BitField" in _REFERENCE_FIELDS[field]:
-                            # This exists ?
-                            raw_data = struct.pack(
-                                _REFERENCE_FIELDS[field]["Ctype"], formatted_value
-                            )
-                            # formatted_value = list(_autoformat(char, raw_data).values())[0]
+                        formatted_value = value
+                        if "Multiplier" in char.fields[field]:
+                            formatted_value *= char.fields[field]["Multiplier"]
+                        if "DecimalExponent" in char.fields[field]:
+                            formatted_value /= 1 / (10 ** (char.fields[field]["DecimalExponent"]))
+                        if "BinaryExponent" in char.fields[field]:
+                            formatted_value *= 2 ** (char.fields[field]["BinaryExponent"])
+                        if "BitField" in char.fields[field]:
+                            formatted_value = list(
+                                _autoformat(char, formatted_value, field).values()
+                            )[0]
 
                         _FIELDS_VALS[field]["Value"] = formatted_value
+                    else:
+                        ref_char = _REFERENCE_TAGS_FIELDS[field]
+                        _FIELDS_VALS[field][ref_char] = {}
+                        for ref_field in _FIELDS_OF_REFERENCED_CHAR[ref_char]:
+                            _FIELDS_VALS[field][ref_char][ref_field] = {}
+                            if "Quantity" in _REFERENCE_FIELDS[ref_field]:
+                                _FIELDS_VALS[field][ref_char][ref_field]["Quantity"] = _REFERENCE_FIELDS[ref_field][
+                                    "Quantity"
+                                ]
+                            if "Unit" in _REFERENCE_FIELDS[ref_field]:
+                                _FIELDS_VALS[field][ref_char][ref_field]["Unit"] = _REFERENCE_FIELDS[ref_field][
+                                    "Unit"
+                                ]
+                            if "Symbol" in _REFERENCE_FIELDS[ref_field]:
+                                _FIELDS_VALS[field][ref_char][ref_field]["Symbol"] = _REFERENCE_FIELDS[ref_field][
+                                    "Symbol"
+                                ]
+                            value = data[value_index]
+                            formatted_value = value
+                            if "Multiplier" in _REFERENCE_FIELDS[ref_field]:
+                                formatted_value *= _REFERENCE_FIELDS[ref_field]["Multiplier"]
+                            if "DecimalExponent" in _REFERENCE_FIELDS[ref_field]:
+                                formatted_value /= 1 / (10 ** (
+                                    _REFERENCE_FIELDS[ref_field]["DecimalExponent"]
+                                ))
+                            if "BinaryExponent" in _REFERENCE_FIELDS[ref_field]:
+                                formatted_value *= 2 ** (
+                                    _REFERENCE_FIELDS[ref_field]["BinaryExponent"]
+                                )
+                            if "BitField" in _REFERENCE_FIELDS[ref_field]:
+                                # This exists ?
+                                raw_data = struct.pack(
+                                    _REFERENCE_FIELDS[ref_field]["Ctype"], formatted_value
+                                )
+                                # formatted_value = list(_autoformat(char, raw_data).values())[0]
+
+                            _FIELDS_VALS[field][ref_char][ref_field]["Value"] = formatted_value
+                            value_index += 1
+                        value_index -= 1
+                value_index += 1
 
             if not rtn_flags:
                 return _FIELDS_VALS
@@ -799,7 +809,9 @@ def _get_multiple_fields(char, val, rtn_flags=False, debug=False):
                         _FIELDS_TO_READ.append(field)
 
         # REFERENCE FIELDS
-        _REFERENCE_FIELDS = {}
+        _REFERENCE_FIELDS = {}  # fields with attributes
+        _REFERENCE_TAGS_FIELDS = {}  # fields that references another characteristic
+        _FIELDS_OF_REFERENCED_CHAR = {}  # fields of the referenced characteristic
         copy_FIELDS_TO_READ = _FIELDS_TO_READ.copy()
         if _FIELDS_TO_READ:
             # get global unpack format: ctype_flag += ctype_field_to_read
@@ -813,22 +825,16 @@ def _get_multiple_fields(char, val, rtn_flags=False, debug=False):
 
                 if "Reference" in char.fields[field]:
                     reference = char.fields[field]["Reference"]
+                    _REFERENCE_TAGS_FIELDS[field] = reference
                     reference_char = get_xml_char(reference)
-                    _LIST_REFERENCES = []
+                    _FIELDS_OF_REFERENCED_CHAR[reference] = []
                     for ref_field in reference_char.fields:
                         # Add fields to _REFERENCE_FIELDS
-                        _LIST_REFERENCES.append(ref_field)
+                        _FIELDS_OF_REFERENCED_CHAR[reference].append(ref_field)
                         _REFERENCE_FIELDS[ref_field] = reference_char.fields[ref_field]
                         if "Ctype" in reference_char.fields[ref_field]:
                             ctype = reference_char.fields[ref_field]["Ctype"]
                             ctype_global += ctype
-
-                    # Substitute
-                    _LIST_REFERENCES.reverse()
-                    char_index = _FIELDS_TO_READ.index(field)
-                    _FIELDS_TO_READ.pop(char_index)
-                    for rf in _LIST_REFERENCES:
-                        _FIELDS_TO_READ.insert(char_index, rf)
 
             # Unpack data
             # There is no the flags value
@@ -836,57 +842,70 @@ def _get_multiple_fields(char, val, rtn_flags=False, debug=False):
             if debug:
                 print("Global Unpack Format: {}".format(ctype_global))
             data = struct.unpack(ctype_global, val)
-            _RAW_VALS = dict(zip(_FIELDS_TO_READ, data))
+            value_index = 0
             _FIELDS_VALS = {}
+            if debug:
+                print(data)
+                print(_FIELDS_TO_READ)
+                print(_REFERENCE_TAGS_FIELDS)
+                print(_FIELDS_OF_REFERENCED_CHAR)
+                print(_REFERENCE_FIELDS)
             # Format fields values according to field metadata: (DecimalExponent/Multiplier):
             for field in _FIELDS_TO_READ:
-                _FIELDS_VALS[field] = {}
+                value = data[value_index]
                 if field in char.fields:
-                    if "Quantity" in char.fields[field]:
-                        _FIELDS_VALS[field]["Quantity"] = char.fields[field]["Quantity"]
-                    if "Unit" in char.fields[field]:
-                        _FIELDS_VALS[field]["Unit"] = char.fields[field]["Unit"]
-                    if "Symbol" in char.fields[field]:
-                        _FIELDS_VALS[field]["Symbol"] = char.fields[field]["Symbol"]
+                    _FIELDS_VALS[field] = {}
+                    if field not in _REFERENCE_TAGS_FIELDS:
+                        if "Quantity" in char.fields[field]:
+                            _FIELDS_VALS[field]["Quantity"] = char.fields[field]["Quantity"]
+                        if "Unit" in char.fields[field]:
+                            _FIELDS_VALS[field]["Unit"] = char.fields[field]["Unit"]
+                        if "Symbol" in char.fields[field]:
+                            _FIELDS_VALS[field]["Symbol"] = char.fields[field]["Symbol"]
 
-                    formatted_value = _RAW_VALS[field]
-                    if "Multiplier" in char.fields[field]:
-                        formatted_value *= char.fields[field]["Multiplier"]
-                    if "DecimalExponent" in char.fields[field]:
-                        formatted_value /= 1 / (10 ** (char.fields[field]["DecimalExponent"]))
-                    if "BinaryExponent" in char.fields[field]:
-                        formatted_value *= 2 ** (char.fields[field]["BinaryExponent"])
-
-                    _FIELDS_VALS[field]["Value"] = formatted_value
-                else:
-                    if _REFERENCE_FIELDS:
-                        if "Quantity" in _REFERENCE_FIELDS[field]:
-                            _FIELDS_VALS[field]["Quantity"] = _REFERENCE_FIELDS[field][
-                                "Quantity"
-                            ]
-                        if "Unit" in _REFERENCE_FIELDS[field]:
-                            _FIELDS_VALS[field]["Unit"] = _REFERENCE_FIELDS[field][
-                                "Unit"
-                            ]
-                        if "Symbol" in _REFERENCE_FIELDS[field]:
-                            _FIELDS_VALS[field]["Symbol"] = _REFERENCE_FIELDS[field][
-                                "Symbol"
-                            ]
-
-                        formatted_value = _RAW_VALS[field]
-                        if "Multiplier" in _REFERENCE_FIELDS[field]:
-                            formatted_value *= _REFERENCE_FIELDS[field]["Multiplier"]
-                        if "DecimalExponent" in _REFERENCE_FIELDS[field]:
-                            formatted_value /= 1 / (10 ** (
-                                _REFERENCE_FIELDS[field]["DecimalExponent"]
-                            ))
-                        if "BinaryExponent" in _REFERENCE_FIELDS[field]:
-                            formatted_value *= 2 ** (
-                                _REFERENCE_FIELDS[field]["BinaryExponent"]
-                            )
+                        formatted_value = value
+                        if "Multiplier" in char.fields[field]:
+                            formatted_value *= char.fields[field]["Multiplier"]
+                        if "DecimalExponent" in char.fields[field]:
+                            formatted_value /= 1 / (10 ** (char.fields[field]["DecimalExponent"]))
+                        if "BinaryExponent" in char.fields[field]:
+                            formatted_value *= 2 ** (char.fields[field]["BinaryExponent"])
 
                         _FIELDS_VALS[field]["Value"] = formatted_value
+                    else:
+                        ref_char = _REFERENCE_TAGS_FIELDS[field]
+                        _FIELDS_VALS[field][ref_char] = {}
+                        for ref_field in _FIELDS_OF_REFERENCED_CHAR[ref_char]:
+                            _FIELDS_VALS[field][ref_char][ref_field] = {}
+                            if "Quantity" in _REFERENCE_FIELDS[ref_field]:
+                                _FIELDS_VALS[field][ref_char][ref_field]["Quantity"] = _REFERENCE_FIELDS[ref_field][
+                                    "Quantity"
+                                ]
+                            if "Unit" in _REFERENCE_FIELDS[ref_field]:
+                                _FIELDS_VALS[field][ref_char][ref_field]["Unit"] = _REFERENCE_FIELDS[ref_field][
+                                    "Unit"
+                                ]
+                            if "Symbol" in _REFERENCE_FIELDS[ref_field]:
+                                _FIELDS_VALS[field][ref_char][ref_field]["Symbol"] = _REFERENCE_FIELDS[ref_field][
+                                    "Symbol"
+                                ]
+                            value = data[value_index]
+                            formatted_value = value
+                            if "Multiplier" in _REFERENCE_FIELDS[ref_field]:
+                                formatted_value *= _REFERENCE_FIELDS[ref_field]["Multiplier"]
+                            if "DecimalExponent" in _REFERENCE_FIELDS[ref_field]:
+                                formatted_value /= 1 / (10 ** (
+                                    _REFERENCE_FIELDS[ref_field]["DecimalExponent"]
+                                ))
+                            if "BinaryExponent" in _REFERENCE_FIELDS[ref_field]:
+                                formatted_value *= 2 ** (
+                                    _REFERENCE_FIELDS[ref_field]["BinaryExponent"]
+                                )
 
+                            _FIELDS_VALS[field][ref_char][ref_field]["Value"] = formatted_value
+                            value_index += 1
+                        value_index -= 1
+                value_index += 1
             if not rtn_flags:
                 return _FIELDS_VALS
             else:
@@ -1014,6 +1033,32 @@ def pformat_char_value(data,
                     *["{} {}".format(data[k]["Value"], data[k]["Symbol"]) for k in data]
                 )
             )
+
+
+def get_plain_format(field):
+    """Iterates until the last level where Value is"""
+    val = ""
+    for k in field:
+        if 'Value' in field[k]:
+            try:
+                val += "{}: {} {} ; ".format(k, field[k]['Value'],  field[k]['Symbol'])
+            except Exception as e:
+                val += "{}: {} ; ".format(k, field[k]['Value'])
+        else:
+            val += get_plain_format(field[k])
+    if val != "":
+        return val
+
+
+def pformat_ref_char_value(char_value):
+    """Print or return the characteristic value in string format"""
+    for field in char_value:
+        if 'Value' in char_value[field]:
+            print(field, char_value[field]['Value'])
+        else:
+            # iterate function
+            val = get_plain_format(char_value[field])
+            print("{}: {}".format(field, val))
 
 
 def map_char_value(data, keys=[], string_fmt=False, one_line=True, sep=", "):
