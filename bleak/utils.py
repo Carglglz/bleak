@@ -700,13 +700,31 @@ def _get_multiple_fields(char, val, rtn_flags=False, debug=False):
                         if "Ctype" in reference_char.fields[ref_field]:
                             ctype = reference_char.fields[ref_field]["Ctype"]
                             ctype_global += ctype
+
             # Unpack data
             # First value is the flags value
             # Rest are field values
+
+            val = _complete_bytes(val)
+            # HEART RATE MEASUREMENT FIX
+            if char.name == 'Heart Rate Measurement':
+                rri = _FLAGS['RR-Interval bit']
+                if rri == 'One or more RR-Interval values are present.':
+                    interval_index = 0
+                    _REFERENCE_TAGS_FIELDS['RR-Interval'] = 'RR-Interval'
+                    _FIELDS_OF_REFERENCED_CHAR['RR-Interval'] = []
+                    ref_field = 'RR-I{}'.format(interval_index)
+                    _FIELDS_OF_REFERENCED_CHAR['RR-Interval'].append(ref_field)
+                    _REFERENCE_FIELDS[ref_field] = char.fields['RR-Interval']
+                    while len(val) > struct.calcsize(ctype_global):
+                        interval_index += 1
+                        ctype_global += 'H'
+                        ref_field = 'RR-I{}'.format(interval_index)
+                        _FIELDS_OF_REFERENCED_CHAR['RR-Interval'].append(ref_field)
+                        _REFERENCE_FIELDS[ref_field] = char.fields['RR-Interval']
             if debug:
                 print("Global Unpack Format: {}".format(ctype_global))
 
-            val = _complete_bytes(val)
             flag, *data = struct.unpack(ctype_global, val)
             if debug:
                 print(data)
@@ -740,6 +758,9 @@ def _get_multiple_fields(char, val, rtn_flags=False, debug=False):
                             formatted_value = list(
                                 _autoformat(char, formatted_value, field).values()
                             )[0]
+                        if "Enumerations" in char.fields[field]:
+                            if str(value) in char.fields[field]["Enumerations"]:
+                                formatted_value = char.fields[field]["Enumerations"][str(value)]
 
                         _FIELDS_VALS[field]["Value"] = formatted_value
                     else:
@@ -772,11 +793,15 @@ def _get_multiple_fields(char, val, rtn_flags=False, debug=False):
                                     _REFERENCE_FIELDS[ref_field]["BinaryExponent"]
                                 )
                             if "BitField" in _REFERENCE_FIELDS[ref_field]:
-                                # This exists ?
+
                                 raw_data = struct.pack(
                                     _REFERENCE_FIELDS[ref_field]["Ctype"], formatted_value
                                 )
                                 # formatted_value = list(_autoformat(char, raw_data).values())[0]
+
+                            if "Enumerations" in _REFERENCE_FIELDS[ref_field]:
+                                if str(value) in _REFERENCE_FIELDS[ref_field]["Enumerations"]:
+                                    formatted_value = _REFERENCE_FIELDS[ref_field]["Enumerations"][str(value)]
 
                             _FIELDS_VALS[field][ref_char][ref_field]["Value"] = formatted_value
                             value_index += 1
@@ -870,6 +895,9 @@ def _get_multiple_fields(char, val, rtn_flags=False, debug=False):
                             formatted_value /= 1 / (10 ** (char.fields[field]["DecimalExponent"]))
                         if "BinaryExponent" in char.fields[field]:
                             formatted_value *= 2 ** (char.fields[field]["BinaryExponent"])
+                        if "Enumerations" in char.fields[field]:
+                            if str(value) in char.fields[field]["Enumerations"]:
+                                formatted_value = char.fields[field]["Enumerations"][str(value)]
 
                         _FIELDS_VALS[field]["Value"] = formatted_value
                     else:
@@ -901,6 +929,9 @@ def _get_multiple_fields(char, val, rtn_flags=False, debug=False):
                                 formatted_value *= 2 ** (
                                     _REFERENCE_FIELDS[ref_field]["BinaryExponent"]
                                 )
+                            if "Enumerations" in _REFERENCE_FIELDS[ref_field]:
+                                if str(value) in _REFERENCE_FIELDS[ref_field]["Enumerations"]:
+                                    formatted_value = _REFERENCE_FIELDS[ref_field]["Enumerations"][str(value)]
 
                             _FIELDS_VALS[field][ref_char][ref_field]["Value"] = formatted_value
                             value_index += 1
@@ -948,6 +979,25 @@ def get_char_value(value: bytes, characteristic: Union[BleakGATTCharacteristic,
         # get flags and fields requirements if any
         return _get_multiple_fields(characteristic, value, rtn_flags=rtn_flags,
                                     debug=debug)
+
+
+def pformat_field_value(field_data, field='', sep=',', prnt=True,
+                        rtn=False):
+    """Print or return the field value in string format"""
+    try:
+        field_string_values = ["{} {}".format(field_data['Value'], field_data['Symbol'])]
+    except Exception as e:
+        field_string_values = ["{}".format(field_data['Value'])]
+    if field:
+        if prnt:
+            print('{}: {}'.format(field, sep.join(field_string_values)))
+        elif rtn:
+            return '{}: {}'.format(field, sep.join(field_string_values))
+    else:
+        if prnt:
+            print(sep.join(field_string_values))
+        elif rtn:
+            return sep.join(field_string_values)
 
 
 def pformat_char_value(data,
