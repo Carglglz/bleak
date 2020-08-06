@@ -705,7 +705,7 @@ def _get_multiple_fields(char, val, rtn_flags=False, debug=False):
             # First value is the flags value
             # Rest are field values
 
-            val = _complete_bytes(val)
+            # val = _complete_bytes(val)
             # HEART RATE MEASUREMENT FIX
             if char.name == 'Heart Rate Measurement':
                 rri = _FLAGS['RR-Interval bit']
