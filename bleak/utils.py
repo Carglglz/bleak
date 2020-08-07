@@ -2,12 +2,14 @@
 import struct
 import xml.etree.ElementTree as ET
 import traceback
+import os
 from typing import Union
 from bleak.uuids import uuidstr_to_str
 from bleak.backends.characteristic import BleakGATTCharacteristic
 try:
     import bleak_sigspec
-    CHARS_XML_DIR = "{}/characteristics_xml".format(bleak_sigspec.__path__[0])
+    CHARS_XML_DIR = os.path.join(bleak_sigspec.__path__[0],
+                                 "characteristics_xml")
 except Exception as e:
     CHARS_XML_DIR = '.'
 
@@ -152,7 +154,7 @@ class CHAR_XML:
     """Parse characteristic xml file"""
 
     def __init__(self, xml_file, path=CHARS_XML_DIR):
-        self._tree = ET.parse("{}/{}".format(path, xml_file))
+        self._tree = ET.parse(os.path.join(path, xml_file))
         self._root = self._tree.getroot()
         self.char_metadata = None
         self.name = None
