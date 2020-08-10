@@ -14,7 +14,7 @@ def encode_FLOAT_ieee11073(value, precision=1, debug=False):
 
     - https://community.hiveeyes.org/t/implementing-ble-gatt-ess-characteristics-with-micropython/2413/3
     """
-    assert abs(value * (10 ** precision)) < 2**23, 'Mantissa to big'
+    assert abs(value * (10 ** precision)) < 2**23, 'Mantissa too big'
     encoded = int(value * (10 ** precision)).to_bytes(3, 'little',
                                                       signed=True) + struct.pack('<b', -precision)
     if debug:
