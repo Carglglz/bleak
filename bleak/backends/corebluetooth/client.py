@@ -8,6 +8,7 @@ import logging
 import uuid
 from asyncio.events import AbstractEventLoop
 from typing import Callable, Any, Union
+from asyncio import sleep as as_sleep
 
 from Foundation import NSData, CBUUID
 from CoreBluetooth import (
@@ -49,6 +50,7 @@ class BleakClientCoreBluetooth(BaseBleakClient):
         self._requester = None
         self._callbacks = {}
         self._services = None
+        self.rssi = None
 
         self._disconnected_callback = None
 
@@ -379,3 +381,28 @@ class BleakClientCoreBluetooth(BaseBleakClient):
             raise BleakError(
                 "Could not stop notify on {0}: {1}".format(characteristic.uuid, success)
             )
+
+    async def update_RSSI(self, rtn: bool = False) -> int:
+        """To update RSSI value in dBm of the connected Peripheral
+
+        Args:
+            rtn (Bool): Whether to return the updated RSSI value or not
+
+        """
+        self._device_info.readRSSI()
+        manager = self._device_info.manager().delegate()
+        RSSI = manager.connected_peripheral.RSSI()
+        for i in range(20):  # First time takes a little otherwise returns None
+            RSSI = manager.connected_peripheral.RSSI()
+            if not RSSI:
+                await as_sleep(0.1)
+            else:
+                break
+
+        if not RSSI:
+            raise BleakError(
+                "Could not get RSSI value"
+            )
+        self.rssi = int(RSSI)
+        if rtn:
+            return self.rssi

@@ -5,6 +5,7 @@ import traceback
 import os
 from typing import Union
 from bleak.uuids import uuidstr_to_str
+from bleak.formatter import SuperStruct
 from bleak.backends.characteristic import BleakGATTCharacteristic
 try:
     import bleak_sigspec
@@ -13,8 +14,10 @@ try:
 except Exception as e:
     CHARS_XML_DIR = '.'
 
-# UNITS
+# Struct IEEE-11073 compliant
+sup_struct = SuperStruct()
 
+# UNITS
 CHARS_UNITS = {
     "meter": "m",
     "kilogram": "kg",
@@ -136,9 +139,9 @@ DATA_FMT = {
     "gatt_uuid": "X",
     "boolean": "?",
     "32bit": "I",
-    "FLOAT": "f",
+    "FLOAT": "F",
     "24bit": "I",
-    "SFLOAT": "f",
+    "SFLOAT": "S",
     "sint24": "I",
     "nibble": "B",
     "2bit": "B",
@@ -436,7 +439,7 @@ def _unpack_data(ctype, data):
     if ctype == "utf8":
         return data.decode("utf8")
     else:
-        (data,) = struct.unpack(ctype, data)
+        (data,) = sup_struct.unpack(ctype, data)
         return data
 
 
@@ -512,25 +515,46 @@ def _autoformat(char, val, field_to_unpack=None):
         return fields
     else:
         field = field_to_unpack
-        if "Ctype" in char.fields[field]:
-            # ctype = char.fields[field]['Ctype']
-            total_size = 0
-            if "BitField" in char.fields[field]:
-                fields[field] = {}
-                bitfield = char.fields[field]["BitField"]
-                for bitf in bitfield:
-                    total_size += int(bitfield[bitf]["size"])
-                for bitf in bitfield:
-                    size = int(bitfield[bitf]["size"])
-                    index = int(bitfield[bitf]["index"])
-                    key_map = bitfield[bitf]["Enumerations"]
-                    fields[field][bitf] = _autobitmask(
-                        val,
-                        total_size=total_size,
-                        index=index,
-                        size=size,
-                        keymap=key_map,
-                    )
+        if hasattr(char, 'fields'):
+            if "Ctype" in char.fields[field]:
+                # ctype = char.fields[field]['Ctype']
+                total_size = 0
+                if "BitField" in char.fields[field]:
+                    fields[field] = {}
+                    bitfield = char.fields[field]["BitField"]
+                    for bitf in bitfield:
+                        total_size += int(bitfield[bitf]["size"])
+                    for bitf in bitfield:
+                        size = int(bitfield[bitf]["size"])
+                        index = int(bitfield[bitf]["index"])
+                        key_map = bitfield[bitf]["Enumerations"]
+                        fields[field][bitf] = _autobitmask(
+                            val,
+                            total_size=total_size,
+                            index=index,
+                            size=size,
+                            keymap=key_map,
+                        )
+        else:
+            if "Ctype" in char[field]:
+                # ctype = char.fields[field]['Ctype']
+                total_size = 0
+                if "BitField" in char[field]:
+                    fields[field] = {}
+                    bitfield = char[field]["BitField"]
+                    for bitf in bitfield:
+                        total_size += int(bitfield[bitf]["size"])
+                    for bitf in bitfield:
+                        size = int(bitfield[bitf]["size"])
+                        index = int(bitfield[bitf]["index"])
+                        key_map = bitfield[bitf]["Enumerations"]
+                        fields[field][bitf] = _autobitmask(
+                            val,
+                            total_size=total_size,
+                            index=index,
+                            size=size,
+                            keymap=key_map,
+                        )
 
         return fields
 
@@ -577,6 +601,56 @@ def _get_req(char_field):
     return reqs
 
 
+# GET FIELD REFERENCES RECURSIVELY
+def get_ref_char_field(_field, name_field):
+    """Get characteristics field references recursively"""
+    _REFERENCE_TAGS_FIELDS = {}
+    _FIELDS_OF_REFERENCED_CHAR = {}
+    _REFERENCE_FIELDS = {}
+    ctype_global = ''
+    if "Reference" in _field:
+        reference = _field["Reference"]
+        _REFERENCE_TAGS_FIELDS[name_field] = reference
+        reference_char = get_xml_char(reference)
+        _FIELDS_OF_REFERENCED_CHAR[reference] = []
+        for ref_field in reference_char.fields:
+            if "Reference" not in reference_char.fields[ref_field]:
+
+                _REFERENCE_FIELDS[ref_field] = reference_char.fields[ref_field]
+            _FIELDS_OF_REFERENCED_CHAR[reference].append(ref_field)
+            if "Ctype" in reference_char.fields[ref_field]:
+                ctype = reference_char.fields[ref_field]["Ctype"]
+                ctype_global += ctype
+            elif "Reference" in reference_char.fields[ref_field]:
+                _ref_tag_fields, _fields_of_ref_char, _ref_fields, _ctype_global = get_ref_char_field(
+                    reference_char.fields[ref_field], ref_field)
+                _REFERENCE_TAGS_FIELDS.update(_ref_tag_fields)
+                _FIELDS_OF_REFERENCED_CHAR.update(_fields_of_ref_char)
+                _REFERENCE_FIELDS.update(_ref_fields)
+                ctype_global += _ctype_global
+        return (_REFERENCE_TAGS_FIELDS, _FIELDS_OF_REFERENCED_CHAR, _REFERENCE_FIELDS, ctype_global)
+
+
+# GET REFERENCE FIELD IN ONE LEVEL DEEP
+def _get_plain_ref_fields(fof_refchar):
+    it_dict = fof_refchar.copy()
+    for ref in it_dict:
+        if any([sf in it_dict for sf in it_dict[ref]]):
+            for sf in it_dict[ref]:
+                if sf in it_dict:
+                    index = fof_refchar[ref].index(sf)
+                    fof_refchar[ref].pop(index)
+                    for rf in it_dict[sf]:
+                        fof_refchar[ref].insert(index, rf)
+                        index += 1
+            fof_refchar = _get_plain_ref_fields(fof_refchar)
+        else:
+            break
+        break
+
+    return fof_refchar
+
+
 # GET FORMATTED VALUE
 
 def _get_single_field(char, val, debug=False):
@@ -584,6 +658,7 @@ def _get_single_field(char, val, debug=False):
     if debug:
         print("CASE 1: ONE FIELD")
     for field in char.fields:
+        # FIXME: CASE 1C REFERENCE ANOTHER CHAR (WITH ONE OR MULTIPLE FIELDS) ?
         if "Ctype" in char.fields[field]:
             ctype = char.fields[field]["Ctype"]
             if "BitField" in char.fields[field]:
@@ -692,16 +767,29 @@ def _get_multiple_fields(char, val, rtn_flags=False, debug=False):
 
                 if "Reference" in char.fields[field]:
                     reference = char.fields[field]["Reference"]
+                    _rtf, _fofrc, _rf, ctype = get_ref_char_field(char.fields[field],
+                                                                  field)
+                    # clean intermediate references
+                    # _ref_tag_fields = { k:v for k,v in _rtf.items() if k == field}
+                    _fofrc = _get_plain_ref_fields(_fofrc)
+                    # _fields_of_ref_char = { k:v for k,v in _fofrc.items() if k == reference}
                     _REFERENCE_TAGS_FIELDS[field] = reference
-                    reference_char = get_xml_char(reference)
                     _FIELDS_OF_REFERENCED_CHAR[reference] = []
-                    for ref_field in reference_char.fields:
-                        # Add fields to _REFERENCE_FIELDS
+                    for ref_field in _rf:
                         _FIELDS_OF_REFERENCED_CHAR[reference].append(ref_field)
-                        _REFERENCE_FIELDS[ref_field] = reference_char.fields[ref_field]
-                        if "Ctype" in reference_char.fields[ref_field]:
-                            ctype = reference_char.fields[ref_field]["Ctype"]
-                            ctype_global += ctype
+                        _REFERENCE_FIELDS[ref_field] = _rf[ref_field]
+                    ctype_global += ctype
+                    # reference = char.fields[field]["Reference"]
+                    # _REFERENCE_TAGS_FIELDS[field] = reference
+                    # reference_char = get_xml_char(reference)
+                    # _FIELDS_OF_REFERENCED_CHAR[reference] = []
+                    # for ref_field in reference_char.fields:
+                    #     # Add fields to _REFERENCE_FIELDS
+                    #     _FIELDS_OF_REFERENCED_CHAR[reference].append(ref_field)
+                    #     _REFERENCE_FIELDS[ref_field] = reference_char.fields[ref_field]
+                    #     if "Ctype" in reference_char.fields[ref_field]:
+                    #         ctype = reference_char.fields[ref_field]["Ctype"]
+                    #         ctype_global += ctype
 
             # Unpack data
             # First value is the flags value
@@ -727,7 +815,7 @@ def _get_multiple_fields(char, val, rtn_flags=False, debug=False):
             if debug:
                 print("Global Unpack Format: {}".format(ctype_global))
 
-            flag, *data = struct.unpack(ctype_global, val)
+            flag, *data = sup_struct.unpack(ctype_global, val)
             if debug:
                 print(data)
                 print(_FIELDS_TO_READ)
@@ -760,7 +848,7 @@ def _get_multiple_fields(char, val, rtn_flags=False, debug=False):
                             formatted_value = list(
                                 _autoformat(char, formatted_value, field).values()
                             )[0]
-                        if "Enumerations" in char.fields[field]:
+                        if "Enumerations" in char.fields[field] and 'BitField' not in char.fields[field]:
                             if str(value) in char.fields[field]["Enumerations"]:
                                 formatted_value = char.fields[field]["Enumerations"][str(value)]
 
@@ -796,12 +884,11 @@ def _get_multiple_fields(char, val, rtn_flags=False, debug=False):
                                 )
                             if "BitField" in _REFERENCE_FIELDS[ref_field]:
 
-                                raw_data = struct.pack(
-                                    _REFERENCE_FIELDS[ref_field]["Ctype"], formatted_value
-                                )
-                                # formatted_value = list(_autoformat(char, raw_data).values())[0]
+                                formatted_value = list(
+                                    _autoformat(_REFERENCE_FIELDS, formatted_value, ref_field).values()
+                                )[0]
 
-                            if "Enumerations" in _REFERENCE_FIELDS[ref_field]:
+                            if "Enumerations" in _REFERENCE_FIELDS[ref_field] and 'BitField' not in _REFERENCE_FIELDS[ref_field]:
                                 if str(value) in _REFERENCE_FIELDS[ref_field]["Enumerations"]:
                                     formatted_value = _REFERENCE_FIELDS[ref_field]["Enumerations"][str(value)]
 
@@ -852,23 +939,36 @@ def _get_multiple_fields(char, val, rtn_flags=False, debug=False):
 
                 if "Reference" in char.fields[field]:
                     reference = char.fields[field]["Reference"]
+                    _rtf, _fofrc, _rf, ctype = get_ref_char_field(char.fields[field],
+                                                                  field)
+                    # clean intermediate references
+                    # _ref_tag_fields = { k:v for k,v in _rtf.items() if k == field}
+                    _fofrc = _get_plain_ref_fields(_fofrc)
+                    # _fields_of_ref_char = { k:v for k,v in _fofrc.items() if k == reference}
                     _REFERENCE_TAGS_FIELDS[field] = reference
-                    reference_char = get_xml_char(reference)
                     _FIELDS_OF_REFERENCED_CHAR[reference] = []
-                    for ref_field in reference_char.fields:
-                        # Add fields to _REFERENCE_FIELDS
+                    for ref_field in _rf:
                         _FIELDS_OF_REFERENCED_CHAR[reference].append(ref_field)
-                        _REFERENCE_FIELDS[ref_field] = reference_char.fields[ref_field]
-                        if "Ctype" in reference_char.fields[ref_field]:
-                            ctype = reference_char.fields[ref_field]["Ctype"]
-                            ctype_global += ctype
+                        _REFERENCE_FIELDS[ref_field] = _rf[ref_field]
+                    ctype_global += ctype
+                    # reference = char.fields[field]["Reference"]
+                    # _REFERENCE_TAGS_FIELDS[field] = reference
+                    # reference_char = get_xml_char(reference)
+                    # _FIELDS_OF_REFERENCED_CHAR[reference] = []
+                    # for ref_field in reference_char.fields:
+                    #     # Add fields to _REFERENCE_FIELDS
+                    #     _FIELDS_OF_REFERENCED_CHAR[reference].append(ref_field)
+                    #     _REFERENCE_FIELDS[ref_field] = reference_char.fields[ref_field]
+                    #     if "Ctype" in reference_char.fields[ref_field]:
+                    #         ctype = reference_char.fields[ref_field]["Ctype"]
+                    #         ctype_global += ctype
 
             # Unpack data
-            # There is no the flags value
+            # There is no flags value
             # All fields are values
             if debug:
                 print("Global Unpack Format: {}".format(ctype_global))
-            data = struct.unpack(ctype_global, val)
+            data = sup_struct.unpack(ctype_global, val)
             value_index = 0
             _FIELDS_VALS = {}
             if debug:
@@ -897,9 +997,15 @@ def _get_multiple_fields(char, val, rtn_flags=False, debug=False):
                             formatted_value /= 1 / (10 ** (char.fields[field]["DecimalExponent"]))
                         if "BinaryExponent" in char.fields[field]:
                             formatted_value *= 2 ** (char.fields[field]["BinaryExponent"])
-                        if "Enumerations" in char.fields[field]:
+                        if "Enumerations" in char.fields[field] and 'BitField' not in char.fields[field]:
                             if str(value) in char.fields[field]["Enumerations"]:
                                 formatted_value = char.fields[field]["Enumerations"][str(value)]
+
+                        if "BitField" in char.fields[field]:
+                            print(formatted_value)
+                            formatted_value = list(
+                                _autoformat(char, formatted_value, field).values()
+                            )[0]
 
                         _FIELDS_VALS[field]["Value"] = formatted_value
                     else:
@@ -931,9 +1037,15 @@ def _get_multiple_fields(char, val, rtn_flags=False, debug=False):
                                 formatted_value *= 2 ** (
                                     _REFERENCE_FIELDS[ref_field]["BinaryExponent"]
                                 )
-                            if "Enumerations" in _REFERENCE_FIELDS[ref_field]:
+                            if "Enumerations" in _REFERENCE_FIELDS[ref_field] and 'BitField' not in _REFERENCE_FIELDS[ref_field]:
                                 if str(value) in _REFERENCE_FIELDS[ref_field]["Enumerations"]:
                                     formatted_value = _REFERENCE_FIELDS[ref_field]["Enumerations"][str(value)]
+
+                            if "BitField" in _REFERENCE_FIELDS[ref_field]:
+
+                                formatted_value = list(
+                                    _autoformat(_REFERENCE_FIELDS, formatted_value, ref_field).values()
+                                )[0]
 
                             _FIELDS_VALS[field][ref_char][ref_field]["Value"] = formatted_value
                             value_index += 1
