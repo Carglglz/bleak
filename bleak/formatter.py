@@ -81,7 +81,7 @@ def encode_SFLOAT_ieee11073(value, precision=1, debug=False):
     """
     val = int(value * (10 ** precision))
     assert abs(val) < 2**11, 'Mantissa too big'
-    encoded = ((precision << 12) + twos_comp(val, 12)
+    encoded = ((-precision << 12) + twos_comp(val, 12)
                ).to_bytes(2, 'little', signed=True)
     if debug:
         hxval = hexlify(encoded)
@@ -122,7 +122,8 @@ def decode_SFLOAT_ieee11073(value):
         "0b{}".format("0" * (16 - (0 + 12)) + (12 * "1") + "0" * 0)
     )
     dec = (value[1] << 8) + value[0]
-    exponent = dec >> 12
+    _exponent = dec >> 12
+    exponent = twos_comp_dec(_exponent, 4)
     _mantissa_uint = (dec & _bitmask_mant) >> 0
     mantissa = twos_comp_dec(_mantissa_uint, 12)
 
@@ -132,7 +133,7 @@ def decode_SFLOAT_ieee11073(value):
         if mantissa in special_values:
             return special_values[mantissa]
 
-    float_val = mantissa / ((10**exponent))
+    float_val = mantissa / (1 / (10**exponent))
     return float_val
 
 
