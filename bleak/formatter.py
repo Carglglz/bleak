@@ -14,6 +14,7 @@ def encode_FLOAT_ieee11073(value, precision=1, debug=False):
 
     - https://community.hiveeyes.org/t/implementing-ble-gatt-ess-characteristics-with-micropython/2413/3
     """
+    assert abs(value * (10 ** precision)) < 2**23, 'Mantissa to big'
     encoded = int(value * (10 ** precision)).to_bytes(3, 'little',
                                                       signed=True) + struct.pack('<b', -precision)
     if debug:
@@ -79,7 +80,7 @@ def encode_SFLOAT_ieee11073(value, precision=1, debug=False):
     The SFLOAT-Type is defined as a 16-bit value with 12-bit mantissa and 4-bit exponent
     """
     val = int(value * (10 ** precision))
-    assert val < 2**11, 'Mantissa too big'
+    assert abs(val) < 2**11, 'Mantissa too big'
     encoded = ((precision << 12) + twos_comp(val, 12)
                ).to_bytes(2, 'little', signed=True)
     if debug:
