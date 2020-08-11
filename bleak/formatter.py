@@ -152,7 +152,7 @@ def encode_nibbles(val, val2):
 
 
 def decode_nibbles(bb):
-    """This need 1 byte to decode two nibbles"""
+    """This needs 1 byte to decode two nibbles"""
     fullbyte, = struct.unpack('B', bb)
     # shift 4 bits to the right
     val2 = fullbyte >> 4
