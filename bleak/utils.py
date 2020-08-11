@@ -143,7 +143,7 @@ DATA_FMT = {
     "24bit": "I",
     "SFLOAT": "S",
     "sint24": "I",
-    "nibble": "B",
+    "nibble": "Y",
     "2bit": "B",
     "uint128": "2Q",
     "uint12": "H",

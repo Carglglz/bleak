@@ -137,12 +137,37 @@ def decode_SFLOAT_ieee11073(value):
     return float_val
 
 
+def encode_nibbles(val, val2):
+    """This needs two values to encode two nibbles as a byte
+    Nibble:   MSN  LSN
+    Byte:   0b0000 0000
+    Indexes:  7654 3210
+    Values:   val2 val
+    """
+    assert any([v > 2**4 - 1 for v in [val, val2]]) is False, 'Nibble value too big, only values (0-15) allowed'
+
+    # shift 4 bits to the left
+    fullbyte = (val2 << 4) + val
+    return struct.pack('B', fullbyte)
+
+
+def decode_nibbles(bb):
+    """This need 1 byte to decode two nibbles"""
+    fullbyte, = struct.unpack('B', bb)
+    # shift 4 bits to the right
+    val2 = fullbyte >> 4
+    # Mask 4 bits on the left
+    val = fullbyte & 0b1111
+    return(val, val2)
+
+
 class SuperStruct:
     def __init__(self):
         self._version = 'Struct class ieee11073 compliant'
         self.len_F = 4  # bytes # 8 bit * 4 --> (32 bit)
         self.len_SF = 2  # bytes # 8 bit * 2 --> (16 bit)
-        self.spec_formats = ['F', 'S']
+        self.len_nibble = 1/2  # bytes 8 bit * 1/2 --> (4 bit)
+        self.spec_formats = ['F', 'S', 'Y']
 
     def __repr__(self):
         return(self._version)
@@ -158,6 +183,7 @@ class SuperStruct:
     def _get_all_index_bytes(self, fmt_string, bb):
         indexes = []
         intermediate_fmt_string = ""
+        intermediate_nibble_fmt_string = ""
         values = []
         index = 0
         expected_size = self._get_overall_size(fmt_string)
@@ -181,6 +207,15 @@ class SuperStruct:
                         bb[index:index+self.len_SF])
                     values.append(val_S)
                     index += self.len_SF
+                elif s == 'Y':
+                    if intermediate_nibble_fmt_string == "":
+                        intermediate_nibble_fmt_string += s
+                    elif intermediate_nibble_fmt_string == 'Y':
+                        val, val2 = decode_nibbles(bb[index:index+int(self.len_nibble*2)])
+                        values.append(val)
+                        values.append(val2)
+                        index += int(self.len_nibble*2)
+                        intermediate_nibble_fmt_string = ""
                 intermediate_fmt_string = ""
             else:
                 intermediate_fmt_string += s
@@ -206,13 +241,15 @@ class SuperStruct:
                     size_value += self.len_F
                 elif s == 'S':
                     size_value += self.len_SF
+                elif s == 'Y':
+                    size_value += self.len_nibble
                 intermediate_fmt_string = ""
             else:
                 intermediate_fmt_string += s
 
         if intermediate_fmt_string:
             size_value += struct.calcsize(intermediate_fmt_string)
-        return size_value
+        return int(size_value)
 
     def calcsize(self, fmt):
         return self._get_overall_size(fmt)
