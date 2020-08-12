@@ -126,11 +126,11 @@ DATA_FMT = {
     "uint8": "B",
     "sint16": "h",
     "uint16": "H",
-    "uint24": "I",
+    "uint24": "k",
     "sint32": "i",
     "uint32": "I",
-    "uint40": "Q",
-    "uint48": "Q",
+    "uint40": "j",
+    "uint48": "J",
     "utf8s": "utf8",
     "8bit": "B",
     "16bit": "h",
@@ -140,14 +140,14 @@ DATA_FMT = {
     "boolean": "?",
     "32bit": "I",
     "FLOAT": "F",
-    "24bit": "I",
+    "24bit": "k",
     "SFLOAT": "S",
-    "sint24": "I",
-    "nibble": "B",
+    "sint24": "K",
+    "nibble": "Y",
     "2bit": "B",
-    "uint128": "2Q",
-    "uint12": "H",
-    "4bit": "B",
+    "uint128": "z",
+    "uint12": "o",
+    "4bit": "Y",
     "characteristic": "X",
 }
 
@@ -461,6 +461,7 @@ def _autobitmask(val, total_size, index, size, keymap):
     _bitmask = eval(
         "0b{}".format("0" * (total_size - (index + size)) + (size * "1") + "0" * index)
     )
+    
     key = (val & _bitmask) >> index
     key_str = str(key)
     mapped_val = keymap[key_str]
@@ -511,6 +512,7 @@ def _autoformat(char, val, field_to_unpack=None):
                             size=size,
                             keymap=key_map,
                         )
+                    break
 
         return fields
     else:
