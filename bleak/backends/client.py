@@ -6,7 +6,6 @@ Created on 2018-04-23 by hbldh <henrik.blidh@nedomkull.com>
 
 """
 import abc
-import asyncio
 import uuid
 from typing import Callable, Any, Union
 
@@ -24,9 +23,8 @@ class BaseBleakClient(abc.ABC):
 
     """
 
-    def __init__(self, address, loop=None, **kwargs):
+    def __init__(self, address, **kwargs):
         self.address = address
-        self.loop = loop if loop else asyncio.get_event_loop()
 
         self.services = BleakGATTServiceCollection()
 
@@ -39,8 +37,8 @@ class BaseBleakClient(abc.ABC):
         return "{0}, {1}".format(self.__class__.__name__, self.address)
 
     def __repr__(self):
-        return "<{0}, {1}, {2}>".format(
-            self.__class__.__name__, self.address, self.loop
+        return "<{0}, {1}>".format(
+            self.__class__.__name__, self.address
         )
 
     # Async Context managers
