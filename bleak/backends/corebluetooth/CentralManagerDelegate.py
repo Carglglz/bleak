@@ -74,9 +74,6 @@ class CentralManagerDelegate(NSObject):
         self.callbacks = {}
         self.disconnected_callback = None
 
-        if not self.compliant():
-            logger.warning("CentralManagerDelegate is not compliant")
-
         self.central_manager = CBCentralManager.alloc().initWithDelegate_queue_(
             self, dispatch_queue_create(b"bleak.corebluetooth", DISPATCH_QUEUE_SERIAL)
         )
@@ -84,12 +81,6 @@ class CentralManagerDelegate(NSObject):
         return self
 
     # User defined functions
-
-    def compliant(self):
-        """Determines whether the class adheres to the CBCentralManagerDelegate protocol"""
-        return CentralManagerDelegate.pyobjc_classMethods.conformsToProtocol_(
-            CBCentralManagerDelegate
-        )
 
     @property
     def isConnected(self) -> bool:
@@ -255,9 +246,10 @@ class CentralManagerDelegate(NSObject):
                 peripheral.identifier().UUIDString()
             )
         )
-        peripheralDelegate = PeripheralDelegate.alloc().initWithPeripheral_(peripheral)
-        self.connected_peripheral_delegate = peripheralDelegate
-        self._connection_state = CMDConnectionState.CONNECTED
+        if self._connection_state != CMDConnectionState.CONNECTED:
+             peripheralDelegate = PeripheralDelegate.alloc().initWithPeripheral_(peripheral)
+             self.connected_peripheral_delegate = peripheralDelegate
+             self._connection_state = CMDConnectionState.CONNECTED
 
     def centralManager_didConnectPeripheral_(self, central, peripheral):
         logger.debug("centralManager_didConnectPeripheral_")
@@ -289,6 +281,8 @@ class CentralManagerDelegate(NSObject):
         self, central: CBCentralManager, peripheral: CBPeripheral, error: NSError
     ):
         logger.debug("Peripheral Device disconnected!")
+        self.connected_peripheral_delegate = None
+        self.connected_peripheral = None
         self._connection_state = CMDConnectionState.DISCONNECTED
 
         if self.disconnected_callback is not None:
